@@ -12,9 +12,11 @@ interface WalletConnectionProviderProps {
 export function WalletConnectionProvider({ children }: WalletConnectionProviderProps) {
     const wallets = [new PhantomWalletAdapter()];
     const apikey = process.env.NEXT_PUBLIC_RPC_MAINNET || "";
+    console.log("RPC Endpoint:", `https://devnet.helius-rpc.com/?api-key=${apikey}`);
+
 
     return (
-        <ConnectionProvider endpoint={`https://mainnet.helius-rpc.com/?api-key=${apikey}`}>
+        <ConnectionProvider endpoint={`https://devnet.helius-rpc.com/?api-key=c171e5b5-d26b-49ac-a0fd-783b2607122d`}>
             <WalletProvider wallets={wallets} autoConnect>
                 <WalletModalProvider>
                     {children}

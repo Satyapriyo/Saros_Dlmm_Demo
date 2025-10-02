@@ -1,14 +1,17 @@
-"use client";
+
 
 import { useState, useEffect } from "react";
 import { SupabaseOrderManager, DatabaseOrder } from "@/lib/supabase";
-import { Target, Shield, Clock, CheckCircle, X, AlertCircle, Users, Activity, TrendingUp } from "lucide-react";
+import { Target, Shield, Clock, CheckCircle, X, AlertCircle, Users, Activity } from "lucide-react";
+import { DLMMUtils } from "@/lib/dlmmUtils";
+import { MODE } from "@saros-finance/dlmm-sdk";
 
 export function AdminOrderView() {
     const [allOrders, setAllOrders] = useState<DatabaseOrder[]>([]);
-    const [activeOrders, setActiveOrders] = useState<DatabaseOrder[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [selectedTab, setSelectedTab] = useState<'all' | 'active' | 'limit' | 'stop-loss'>('all');
+    const [currentPrices, setCurrentPrices] = useState<Record<string, number>>({});
+    const [pricesLoading, setPricesLoading] = useState(false);
     const [stats, setStats] = useState({
         totalOrders: 0,
         activeOrders: 0,
@@ -20,7 +23,7 @@ export function AdminOrderView() {
     const loadOrders = async () => {
         setIsLoading(true);
         try {
-            const [all, active] = await Promise.all([
+            const [_all, active] = await Promise.all([
                 SupabaseOrderManager.getOrdersByStatus('active'),
                 SupabaseOrderManager.getActiveOrders()
             ]);
@@ -35,7 +38,6 @@ export function AdminOrderView() {
 
             const flatAllOrders = allOrdersData.flat();
             setAllOrders(flatAllOrders);
-            setActiveOrders(active);
 
             // Calculate stats
             const uniqueWallets = new Set(flatAllOrders.map(o => o.user_wallet)).size;
@@ -53,6 +55,39 @@ export function AdminOrderView() {
         }
     };
 
+    // Fetch current prices for all unique token pairs
+    const fetchCurrentPrices = async () => {
+        if (allOrders.length === 0) return;
+
+        setPricesLoading(true);
+        try {
+            const dlmmUtils = new DLMMUtils(MODE.DEVNET);
+            const uniquePairs = new Set<string>();
+            const pairRequests: Array<{ fromToken: any; toToken: any }> = [];
+
+            // Collect unique token pairs from orders
+            allOrders.forEach(order => {
+                const pairKey = `${order.token_from}/${order.token_to}`;
+                if (!uniquePairs.has(pairKey)) {
+                    uniquePairs.add(pairKey);
+                    const fromToken = dlmmUtils.getTokenByMint(order.token_from);
+                    const toToken = dlmmUtils.getTokenByMint(order.token_to);
+                    if (fromToken && toToken) {
+                        pairRequests.push({ fromToken, toToken });
+                    }
+                }
+            });
+
+            // Fetch prices for all pairs
+            const prices = await dlmmUtils.getCurrentPrices(pairRequests);
+            setCurrentPrices(prices);
+        } catch (error) {
+            console.error('Failed to fetch current prices:', error);
+        } finally {
+            setPricesLoading(false);
+        }
+    };
+
     useEffect(() => {
         loadOrders();
 
@@ -60,6 +95,17 @@ export function AdminOrderView() {
         const interval = setInterval(loadOrders, 30000);
         return () => clearInterval(interval);
     }, []);
+
+    // Fetch prices when orders change
+    useEffect(() => {
+        if (allOrders.length > 0) {
+            fetchCurrentPrices();
+
+            // Refresh prices every 10 seconds
+            const priceInterval = setInterval(fetchCurrentPrices, 10000);
+            return () => clearInterval(priceInterval);
+        }
+    }, [allOrders]);
 
     const getFilteredOrders = () => {
         switch (selectedTab) {
@@ -91,10 +137,27 @@ export function AdminOrderView() {
         const tokenMap: { [key: string]: string } = {
             'So11111111111111111111111111111111111111112': 'SOL',
             'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDC',
+            'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 'USDT',
             '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': 'RAY',
-            'SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt': 'SRM'
+            'SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt': 'SRM',
+            'orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE': 'ORCA',
+            'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': 'JUP',
+            'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': 'BONK'
         };
         return tokenMap[tokenMint] || tokenMint.slice(0, 4) + '...';
+    };
+
+    const getCurrentPrice = (order: DatabaseOrder): string => {
+        const fromSymbol = getTokenSymbol(order.token_from);
+        const toSymbol = getTokenSymbol(order.token_to);
+        const pairKey = `${fromSymbol}/${toSymbol}`;
+
+        const price = currentPrices[pairKey];
+        if (price !== undefined) {
+            return price.toFixed(6);
+        }
+
+        return '—';
     };
 
     const truncateWallet = (wallet: string) => {
@@ -176,8 +239,8 @@ export function AdminOrderView() {
                             key={tab}
                             onClick={() => setSelectedTab(tab as any)}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedTab === tab
-                                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                                 }`}
                         >
                             {tab.charAt(0).toUpperCase() + tab.slice(1).replace('-', ' ')}
@@ -228,6 +291,14 @@ export function AdminOrderView() {
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Current Price
+                                        {pricesLoading && (
+                                            <span className="ml-2 inline-flex items-center">
+                                                <svg className="animate-spin h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                            </span>
+                                        )}
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Status
@@ -281,15 +352,27 @@ export function AdminOrderView() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            {order.current_price ? (
-                                                <span className={`text-sm font-medium ${order.type === 'limit'
-                                                        ? (order.current_price >= order.target_price ? 'text-green-600' : 'text-gray-900')
-                                                        : (order.current_price <= order.target_price ? 'text-red-600' : 'text-gray-900')
-                                                    }`}>
-                                                    {order.current_price}
-                                                </span>
+                                            {pricesLoading ? (
+                                                <span className="text-sm text-gray-400">Loading...</span>
                                             ) : (
-                                                <span className="text-sm text-gray-400">—</span>
+                                                (() => {
+                                                    const currentPrice = getCurrentPrice(order);
+                                                    if (currentPrice === '—') {
+                                                        return <span className="text-sm text-gray-400">—</span>;
+                                                    }
+
+                                                    const current = parseFloat(currentPrice);
+                                                    const target = order.target_price;
+
+                                                    return (
+                                                        <span className={`text-sm font-medium ${order.type === 'limit'
+                                                            ? (current >= target ? 'text-green-600' : 'text-gray-900')
+                                                            : (current <= target ? 'text-red-600' : 'text-gray-900')
+                                                            }`}>
+                                                            {currentPrice}
+                                                        </span>
+                                                    );
+                                                })()
                                             )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">

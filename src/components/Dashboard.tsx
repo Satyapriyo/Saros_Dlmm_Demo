@@ -5,17 +5,13 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { useWallet } from "@solana/wallet-adapter-react";
 import {
     ArrowLeftRight,
-    Plus,
-    Minus,
     BarChart3,
     Wallet,
     TrendingUp,
     DollarSign,
     Activity,
     ArrowLeft,
-    Target,
-    Shield,
-    Clock
+    Target
 } from "lucide-react";
 import { OrderManagement } from "./OrderManagement";
 import { AdminOrderView } from "./AdminOrderView";
@@ -28,7 +24,7 @@ interface DashboardProps {
 
 export function Dashboard({ onBackToLanding }: DashboardProps) {
     const { connected, publicKey } = useWallet();
-    const [activeTab, setActiveTab] = useState<'swap' | 'liquidity' | 'pools' | 'orders' | 'admin'>('swap');
+    const [activeTab, setActiveTab] = useState<'swap' | 'pools' | 'orders' | 'admin'>('swap');
 
     if (!connected) {
         return (
@@ -156,18 +152,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps) {
                                     <span>Swap</span>
                                 </div>
                             </button>
-                            <button
-                                onClick={() => setActiveTab('liquidity')}
-                                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'liquidity'
-                                    ? 'border-blue-500 text-blue-600 bg-blue-50'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                    }`}
-                            >
-                                <div className="flex items-center space-x-2">
-                                    <Plus className="w-4 h-4" />
-                                    <span>Add/Remove Liquidity</span>
-                                </div>
-                            </button>
+
                             <button
                                 onClick={() => setActiveTab('pools')}
                                 className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'pools'
@@ -213,52 +198,7 @@ export function Dashboard({ onBackToLanding }: DashboardProps) {
                             <SwapInterface />
                         )}
 
-                        {/* Liquidity Tab */}
-                        {activeTab === 'liquidity' && (
-                            <div className="max-w-2xl mx-auto">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-6">Manage Liquidity</h3>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="bg-green-50 p-6 rounded-lg border border-green-200">
-                                        <div className="flex items-center space-x-3 mb-4">
-                                            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                                                <Plus className="w-5 h-5 text-green-600" />
-                                            </div>
-                                            <h4 className="text-lg font-medium text-gray-900">Add Liquidity</h4>
-                                        </div>
-                                        <p className="text-gray-600 mb-4">
-                                            Provide liquidity to earn fees from trades. DLMM pools offer superior capital efficiency.
-                                        </p>
-                                        <button className="w-full bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 transition-colors">
-                                            Add Liquidity
-                                        </button>
-                                    </div>
-
-                                    <div className="bg-red-50 p-6 rounded-lg border border-red-200">
-                                        <div className="flex items-center space-x-3 mb-4">
-                                            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                                                <Minus className="w-5 h-5 text-red-600" />
-                                            </div>
-                                            <h4 className="text-lg font-medium text-gray-900">Remove Liquidity</h4>
-                                        </div>
-                                        <p className="text-gray-600 mb-4">
-                                            Remove your liquidity positions and claim accumulated fees from your pools.
-                                        </p>
-                                        <button className="w-full bg-red-600 text-white py-2 rounded-lg font-medium hover:bg-red-700 transition-colors">
-                                            Remove Liquidity
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="mt-8">
-                                    <h4 className="text-lg font-medium text-gray-900 mb-4">Your Liquidity Positions</h4>
-                                    <div className="bg-gray-50 p-6 rounded-lg text-center">
-                                        <p className="text-gray-500">No liquidity positions found</p>
-                                        <p className="text-sm text-gray-400 mt-1">Add liquidity to a pool to see your positions here</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
 
                         {/* Pools Tab */}
                         {activeTab === 'pools' && (

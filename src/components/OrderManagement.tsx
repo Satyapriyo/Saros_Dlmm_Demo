@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useOrderManager, LimitOrder } from "@/lib/orderManager";
 import { Target, Shield, Clock, X, CheckCircle, AlertCircle } from "lucide-react";
+import toast from 'react-hot-toast';
 
 export function OrderManagement() {
     const { connected, publicKey } = useWallet();
@@ -38,11 +39,13 @@ export function OrderManagement() {
 
     const handleCreateOrder = async () => {
         if (!fromToken || !toToken || !amount || !targetPrice) {
-            alert('Please fill all fields');
+            toast.error('Please fill all fields');
             return;
         }
 
         setIsCreating(true);
+        const loadingToast = toast.loading(`Creating ${orderType === 'limit' ? 'limit' : 'stop loss'} order...`);
+
         try {
             const pairAddress = getPairAddress(fromToken, toToken);
             await createLimitOrder(
@@ -58,26 +61,38 @@ export function OrderManagement() {
             setAmount('');
             setTargetPrice('');
 
-            alert(`${orderType === 'limit' ? 'Limit order' : 'Stop loss order'} created successfully!`);
+            toast.success(`${orderType === 'limit' ? 'Limit order' : 'Stop loss order'} created successfully!`, {
+                id: loadingToast,
+            });
         } catch (error) {
             console.error('Error creating order:', error);
-            alert('Failed to create order');
+            toast.error('Failed to create order. Please try again.', {
+                id: loadingToast,
+            });
         } finally {
             setIsCreating(false);
         }
     };
 
     const handleCancelOrder = async (orderId: string) => {
+        const loadingToast = toast.loading('Cancelling order...');
+
         try {
             const success = await cancelOrder(orderId);
             if (success) {
-                alert('Order cancelled successfully');
+                toast.success('Order cancelled successfully', {
+                    id: loadingToast,
+                });
             } else {
-                alert('Failed to cancel order');
+                toast.error('Failed to cancel order', {
+                    id: loadingToast,
+                });
             }
         } catch (error) {
             console.error('Error cancelling order:', error);
-            alert('Failed to cancel order');
+            toast.error('Failed to cancel order', {
+                id: loadingToast,
+            });
         }
     };
 

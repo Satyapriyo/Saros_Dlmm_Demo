@@ -11,14 +11,8 @@ import {
     ArrowUpDown,
     RefreshCw,
     Search,
-    Filter,
-    ExternalLink,
-    Info,
-    Star,
-    Activity
-} from "lucide-react";
-
-interface PoolStats {
+    Info
+} from "lucide-react"; interface PoolStats {
     totalTVL: number;
     total24hVolume: number;
     totalPairs: number;
@@ -26,7 +20,7 @@ interface PoolStats {
 }
 
 export function PoolOverview() {
-    const dlmmUtils = useMemo(() => new DLMMUtils(MODE.MAINNET), []);
+    const dlmmUtils = useMemo(() => new DLMMUtils(MODE.DEVNET), []);
     const [pools, setPools] = useState<DLMMPair[]>([]);
     const [filteredPools, setFilteredPools] = useState<DLMMPair[]>([]);
     const [isLoading, setIsLoading] = useState(true);

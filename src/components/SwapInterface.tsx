@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { ArrowLeftRight, Settings, RefreshCw, AlertCircle, TrendingUp, Info } from "lucide-react";
-import { DLMMUtils, Token, MAINNET_TOKENS } from "@/lib/dlmmUtils";
+import toast from 'react-hot-toast';
+import { DLMMUtils, Token, DEVNET_TOKENS } from "@/lib/dlmmUtils";
 import { MODE } from "@saros-finance/dlmm-sdk";
 
 interface SwapQuote {
@@ -22,7 +23,7 @@ export function SwapInterface() {
     const { connection } = useConnection();
 
     // DLMM Utils instance
-    const dlmmUtils = useMemo(() => new DLMMUtils(MODE.MAINNET), []);
+    const dlmmUtils = useMemo(() => new DLMMUtils(MODE.DEVNET), []);
 
     // State
     const [fromToken, setFromToken] = useState<Token | null>(null);
@@ -54,7 +55,7 @@ export function SwapInterface() {
                 toToken,
                 amount: fromAmount,
                 isExactInput: true,
-                slippage,
+                slippage: slippage / 100,
             });
 
             const outputAmount = Number(quoteData.amountOut) / Math.pow(10, toToken.decimals);
@@ -63,7 +64,7 @@ export function SwapInterface() {
             setQuote({
                 amountIn: quoteData.amount,
                 amountOut: quoteData.amountOut,
-                amountOutMin: quoteData.otherAmountOffset, // Use otherAmountOffset as min amount
+                amountOutMin: quoteData.otherAmountOffset ?? quoteData.amountOut, // Use otherAmountOffset as min amount
                 priceImpact: quoteData.priceImpact,
                 fee: BigInt(0), // Fee calculation would need to be implemented
                 exchangeRate: quoteData.exchangeRate,
@@ -72,7 +73,9 @@ export function SwapInterface() {
 
         } catch (error) {
             console.error('Error getting quote:', error);
-            setError(error instanceof Error ? error.message : 'Failed to get quote');
+            const errorMessage = error instanceof Error ? error.message : 'Failed to get quote';
+            setError(errorMessage);
+            toast.error(`Failed to get quote: ${errorMessage}`);
             setToAmount('');
             setQuote(null);
         } finally {
@@ -86,10 +89,9 @@ export function SwapInterface() {
             setError('Please connect wallet and get a quote first');
             return;
         }
-
         setIsSwapping(true);
+        const loadingToast = toast.loading('Processing swap transaction...');
         setError(null);
-
         try {
             // Create swap transaction using our utility
             const swapTransaction = await dlmmUtils.createSwapTransaction({
@@ -99,40 +101,40 @@ export function SwapInterface() {
                 minAmountOut: quote.amountOutMin,
                 userPublicKey: publicKey,
             });
-
             // Send transaction (cast to resolve type compatibility)
-            const signature = await sendTransaction(swapTransaction as any, connection);
-
+            const signature = await sendTransaction(swapTransaction as any, connection, { skipPreflight: false });
             // Wait for confirmation
             await connection.confirmTransaction(signature, 'confirmed');
-
             console.log('Swap successful:', signature);
-
             // Reset form
             setFromAmount('');
             setToAmount('');
             setQuote(null);
 
-            alert(`Swap completed successfully!\nTransaction: ${signature}`);
+            toast.success(`Swap completed successfully! Transaction: ${signature}`, {
+                id: loadingToast,
+                duration: 6000,
+            });
 
         } catch (error) {
             console.error('Swap failed:', error);
-            setError(error instanceof Error ? error.message : 'Swap failed');
+            const errorMessage = error instanceof Error ? error.message : 'Swap failed';
+            setError(errorMessage);
+            toast.error(`Swap failed: ${errorMessage}`, {
+                id: loadingToast,
+            });
         } finally {
             setIsSwapping(false);
         }
     };
-
     // Flip tokens
     const flipTokens = () => {
         const tempToken = fromToken;
         setFromToken(toToken);
         setToToken(tempToken);
-
         const tempAmount = fromAmount;
         setFromAmount(toAmount);
         setToAmount(tempAmount);
-
         setQuote(null);
     };
 

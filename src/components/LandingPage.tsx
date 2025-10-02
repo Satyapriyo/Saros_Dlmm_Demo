@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { ChevronRight, Zap, Shield, TrendingUp, DollarSign, Users, BarChart3 } from "lucide-react";
 
 interface LandingPageProps {
@@ -82,7 +81,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                                 Lightning Fast Execution
                             </h3>
                             <p className="text-gray-600">
-                                Built on Solana's high-performance blockchain for instant trades with minimal fees.
+                                Built on Solana&apos;s high-performance blockchain for instant trades with minimal fees.
                                 Experience sub-second transaction confirmations.
                             </p>
                         </div>
@@ -95,7 +94,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                                 Superior Capital Efficiency
                             </h3>
                             <p className="text-gray-600">
-                                DLMM's concentrated liquidity model ensures your capital works harder,
+                                DLMM&apos;s concentrated liquidity model ensures your capital works harder,
                                 generating higher yields compared to traditional AMMs.
                             </p>
                         </div>

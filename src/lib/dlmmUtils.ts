@@ -1,6 +1,7 @@
 import { LiquidityBookServices, MODE } from "@saros-finance/dlmm-sdk";
 import { PublicKey } from "@solana/web3.js";
 
+const apikey = process.env.NEXT_PUBLIC_RPC_MAINNET;
 export interface Token {
   symbol: string;
   mint: string;
@@ -104,12 +105,17 @@ export const DEVNET_TOKENS: Token[] = [
     mint: "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE",
     decimals: 6,
   },
+  {
+    symbol: "PYUSD",
+    mint: "CXk2AMBfi3TwaEL2468s6zP8xq9NxTXjp9gjMgzeUynM",
+    decimals: 6,
+  },
 ];
 
 // Mainnet DLMM pairs (these should be real pair addresses from Saros)
 export const MAINNET_PAIRS: DLMMPair[] = [
   {
-    pairAddress: "BqjKYjybeYjM83eUdDjAksEkbZisKBEqbGt7zKkGEgnW", // SOL/USDC
+    pairAddress: "8vZHTVMdYvcPFUoHBEbcFyfSKnjWtvbNgYpXg1aiC2uS", // SOL/USDC
     tokenX: MAINNET_TOKENS[0], // SOL
     tokenY: MAINNET_TOKENS[1], // USDC
     binStep: 25,
@@ -193,9 +199,19 @@ export const DEVNET_PAIRS: DLMMPair[] = [
     volume24h: 234000,
   },
   {
-    pairAddress: "E8xWcMpzqetpxwLj7tJfSQ6J8Juh1wHFdT5KrkwdYPQD", // Example pair
+    pairAddress: "H9EPqQKCvv9ddzK6KHjo8vvUPMLMJXmMmru9KUYNaDFQ", // Example pair
     tokenX: DEVNET_TOKENS[3], // SRM
     tokenY: DEVNET_TOKENS[1], // USDC
+    binStep: 25,
+    baseFeePercentage: 0.25,
+    isActive: true,
+    tvl: 600000,
+    volume24h: 123000,
+  },
+  {
+    pairAddress: "H9EPqQKCvv9ddzK6KHjo8vvUPMLMJXmMmru9KUYNaDFQ", // Example pair
+    tokenX: DEVNET_TOKENS[5], // PYUSD
+    tokenY: DEVNET_TOKENS[0], // SOL (index 0, not 1)
     binStep: 25,
     baseFeePercentage: 0.25,
     isActive: true,
@@ -208,9 +224,21 @@ export class DLMMUtils {
   private dlmmService: LiquidityBookServices;
   private mode: MODE;
 
-  constructor(mode: MODE = MODE.MAINNET) {
-    this.dlmmService = new LiquidityBookServices({ mode });
+  constructor(mode: MODE = MODE.DEVNET) {
     this.mode = mode;
+
+    const rpcUrl =
+      mode === MODE.MAINNET
+        ? process.env.NEXT_PUBLIC_RPC_MAINNET ||
+          "https://api.mainnet-beta.solana.com"
+        : process.env.NEXT_PUBLIC_RPC_DEVNET || "https://api.devnet.solana.com";
+
+    this.dlmmService = new LiquidityBookServices({
+      mode: mode,
+      options: {
+        rpcUrl: rpcUrl,
+      },
+    });
   }
 
   // Get current tokens based on mode
@@ -374,5 +402,55 @@ export class DLMMUtils {
   // Validate if swap is possible
   canSwap(fromToken: Token, toToken: Token): boolean {
     return this.findPair(fromToken, toToken) !== null;
+  }
+
+  // Get current market price for a token pair
+  async getCurrentPrice(
+    fromToken: Token,
+    toToken: Token
+  ): Promise<number | null> {
+    try {
+      const quote = await this.getSwapQuote({
+        fromToken,
+        toToken,
+        amount: "1", // Get price for 1 unit
+        isExactInput: true,
+        slippage: 0.5,
+      });
+
+      return quote.exchangeRate;
+    } catch (error) {
+      console.error(
+        `Failed to get current price for ${fromToken.symbol}/${toToken.symbol}:`,
+        error
+      );
+      return null;
+    }
+  }
+
+  // Get current prices for multiple token pairs
+  async getCurrentPrices(
+    pairs: Array<{ fromToken: Token; toToken: Token }>
+  ): Promise<Record<string, number>> {
+    const prices: Record<string, number> = {};
+
+    await Promise.allSettled(
+      pairs.map(async ({ fromToken, toToken }) => {
+        try {
+          const price = await this.getCurrentPrice(fromToken, toToken);
+          if (price !== null) {
+            const pairKey = `${fromToken.symbol}/${toToken.symbol}`;
+            prices[pairKey] = price;
+          }
+        } catch (error) {
+          console.error(
+            `Failed to fetch price for ${fromToken.symbol}/${toToken.symbol}:`,
+            error
+          );
+        }
+      })
+    );
+
+    return prices;
   }
 }
